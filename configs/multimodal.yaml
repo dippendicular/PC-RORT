@@ -33,7 +33,7 @@ fusion:
 # PC-RORT is the paper's protocol layer.  It is intentionally separate from
 # generic latent fusion: source evidence is admitted and aligned before
 # relation-aware deliberation, then the action policy may accept/defer/request.
-pcrort_legacy:
+pcrort:
   enabled: true
   index_time_col: "index_time" # Required ISO-8601 metadata column
   required_modalities: [radiology, pathology, genomics]
