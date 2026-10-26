@@ -242,7 +242,7 @@ def multimodal_collate_fn(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
     }
 
     # A batch must never silently lose samples: use a zero placeholder plus an
-    # availability mask.  VOIR records the absence as an evidence gap later.
+    # availability mask.  PC-RORT records the absence as an evidence gap later.
     first_rad = next((x.get("radiology_image") for x in batch if x.get("radiology_image") is not None), None)
     if first_rad is not None:
         collated["radiology_image"] = torch.stack([x.get("radiology_image") if x.get("radiology_image") is not None else torch.zeros_like(first_rad) for x in batch])
