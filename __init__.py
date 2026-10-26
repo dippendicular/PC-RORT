@@ -1,8 +1,5 @@
-"""
-Multimodal Cancer Detection — Research Codebase
-================================================
-Integrated Federated Multimodal AI for Early Cancer Detection
-Using Radiology, Pathology, and Genomic Signals.
-"""
+"""PC-RORT: Provenance-Constrained Recipient-Optimal Relation Transport.
 
-__version__ = "0.1.0"
+Federated multimodal research infrastructure and robust transport experiments.
+"""
+__version__ = "0.2.0"
