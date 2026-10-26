@@ -7,8 +7,10 @@ from .config import settings
 from .db import SessionLocal
 from .models import Dataset, Job, ModelVersion
 from .storage import get_file, put_path
+from .validation import validate_zip
+import stat
 
-celery = Celery("pcrort_legacy", broker=settings.redis_url, backend=settings.redis_url)
+celery = Celery("pcrort", broker=settings.redis_url, backend=settings.redis_url)
 
 @celery.task(bind=True)
 def validate_dataset(self, dataset_id: str):
@@ -31,7 +33,24 @@ def train_model(self, job_id: str):
         if not dataset or dataset.owner_id != job.owner_id: raise RuntimeError("Dataset ownership contract failed")
         with tempfile.TemporaryDirectory(prefix=f"pcrort-{job.id}-") as tmp:
             work=Path(tmp); archive=io.BytesIO(); get_file(dataset.object_key,archive); archive.seek(0)
-            with zipfile.ZipFile(archive) as z: z.extractall(work/"dataset")
+            payload = archive.getvalue()
+            validate_zip(payload)
+            archive.seek(0)
+            destination=(work/"dataset").resolve()
+            destination.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(archive) as z:
+                for entry in z.infolist():
+                    target=(destination/entry.filename).resolve()
+                    if not target.is_relative_to(destination):
+                        raise RuntimeError("Archive contains an invalid path")
+                    if stat.S_ISLNK((entry.external_attr >> 16) & 0xFFFF):
+                        raise RuntimeError("Archive symlinks are not accepted")
+                    if entry.is_dir():
+                        target.mkdir(parents=True, exist_ok=True)
+                    else:
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        with z.open(entry) as src, target.open("wb") as dst:
+                            shutil.copyfileobj(src, dst, length=1024 * 1024)
             data=work/"dataset"; manifest=pd.read_csv(data/"metadata.csv")
             manifest["radiology_path"]=manifest["radiology_path"].map(lambda x:str(data/"radiology"/Path(str(x)).name))
             manifest["pathology_path"]=manifest["patient_id"].map(lambda x:str(data/"pathology"/str(x)))
