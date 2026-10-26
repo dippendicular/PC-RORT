@@ -19,7 +19,7 @@ in `.env` first. Run the Celery worker separately:
 celery -A webapp.tasks.celery worker --loglevel=info
 ```
 
-The API health probe is `GET /api/health` and API documentation is at
+The API health probe is `GET /api/health`, the authenticated optimization route is `POST /api/transport/optimize`, and API documentation is at
 `/api/docs`. The browser dashboard is served at `/`.
 The `pcrort web` command binds to localhost only. Production deployments
 require HTTPS, secure cookies, trusted reverse-proxy settings, migrations,
@@ -38,3 +38,16 @@ Do not expose the sample credentials in `.env.example` to a public endpoint.
 The portal's existing radiology inference route is a separate model workflow,
 not the full relation-transport pathway. The PC-RORT statistical transport
 components currently have separate numerical experiment entrypoints.
+
+## Browser-based robust optimization
+
+The workspace provides a risk-matrix editor and an authenticated POST route at
+`/api/transport/optimize`. Supply a symmetric PSD center matrix for two to
+eight candidates, a nonnegative Frobenius radius and an external-mass cap
+`rho`. Candidate zero is the local estimator. The API returns the selected
+weights, robust contrast, numerical gap and convergence status. The endpoint
+has a 6-request/minute per-client rate limit and limits solver iterations.
+
+The optimizer is a numerical research tool and is not connected to the web
+portal's clinical-image prediction endpoint. Online clinical deployment
+requires separate evaluation, governance and security review.
