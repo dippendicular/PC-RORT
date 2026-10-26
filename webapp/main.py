@@ -15,9 +15,9 @@ from .models import AuditEvent, Dataset, Job, ModelVersion, Prediction, User
 from .security import csrf, decode_token, hash_password, issue_token, require_csrf, verify_password
 from .storage import put_file, get_file
 from .tasks import train_model, validate_dataset
-from .validation import validate_zip
+from .validation import validate_zip\nfrom .config import settings
 
-app=FastAPI(title="PC-RORT Research Portal", docs_url=None, redoc_url=None)
+app=FastAPI(title="PC-RORT Research Portal", version="0.2.0", docs_url="/api/docs", redoc_url=None)\n\n@app.get("/api/health", tags=["service"])\ndef health(): return {"status":"ok","service":"PC-RORT"}\n
 limiter=Limiter(key_func=get_remote_address); app.state.limiter=limiter
 root=Path(__file__).parent
 app.mount("/static", StaticFiles(directory=root/"static"), name="static")
@@ -50,7 +50,7 @@ def register(request:Request, email:str=Form(), password:str=Form(), db:Session=
 def login(request:Request, email:str=Form(), password:str=Form(), db:Session=Depends(get_db)):
     u=db.query(User).filter_by(email=email.lower()).first()
     if not u or not verify_password(password,u.password_hash): raise HTTPException(401,"Invalid credentials")
-    csrf_token=csrf(); response=JSONResponse({"ok":True,"csrf":csrf_token,"admin":u.is_admin}); response.set_cookie("access",issue_token(u.id,u.is_admin),httponly=True,secure=True,samesite="strict",max_age=1200); response.set_cookie("csrf",csrf_token,httponly=False,secure=True,samesite="strict",max_age=1200); audit(db,u.id,"LOGIN",u.id); return response
+    csrf_token=csrf(); response=JSONResponse({"ok":True,"csrf":csrf_token,"admin":u.is_admin}); response.set_cookie("access",issue_token(u.id,u.is_admin),httponly=True,secure=settings.secure_cookies,samesite="strict",max_age=1200); response.set_cookie("csrf",csrf_token,httponly=False,secure=True,samesite="strict",max_age=1200); audit(db,u.id,"LOGIN",u.id); return response
 @app.post("/auth/logout")
 def logout(request:Request,user:User=Depends(current)):
     require_csrf(request); r=JSONResponse({"ok":True}); r.delete_cookie("access"); r.delete_cookie("csrf"); return r
@@ -62,7 +62,7 @@ def datasets(user:User=Depends(current),db:Session=Depends(get_db)): return [{"i
 async def upload_dataset(request:Request, archive:UploadFile=File(), user:User=Depends(current), db:Session=Depends(get_db)):
     require_csrf(request)
     if archive.content_type not in {"application/zip","application/x-zip-compressed"}: raise HTTPException(415,"Upload a ZIP dataset")
-    payload=await archive.read(); manifest=validate_zip(payload); dataset=Dataset(owner_id=user.id,name=Path(archive.filename or "dataset.zip").stem,object_key=f"users/{user.id}/datasets/",manifest=manifest)
+    payload=await archive.read(settings.max_upload_bytes + 1); manifest=validate_zip(payload); dataset=Dataset(owner_id=user.id,name=Path(archive.filename or "dataset.zip").stem,object_key=f"users/{user.id}/datasets/",manifest=manifest)
     dataset.object_key += dataset.id+".zip"; put_file(dataset.object_key,io.BytesIO(payload),archive.content_type); db.add(dataset); db.commit(); validate_dataset.delay(dataset.id); audit(db,user.id,"DATASET_UPLOAD",dataset.id,manifest); return {"dataset_id":dataset.id,"status":dataset.status}
 
 @app.post("/jobs")
@@ -98,17 +98,17 @@ async def predict(request:Request, model_id:str=Form(), image:UploadFile=File(),
     if image.content_type not in {"image/jpeg","image/png","image/tiff"}: raise HTTPException(415,"Unsupported image type")
     # Worker-created artifacts are required; no heuristic or untrained fallback is permitted.
     if not model.checkpoint_key: raise HTTPException(409,"Model artifact is unavailable")
-    payload=await image.read()
+    payload=await image.read(20 * 1024 * 1024 + 1)\n    if len(payload) > 20 * 1024 * 1024: raise HTTPException(413,"Image exceeds 20 MB limit")
     try: uploaded=Image.open(io.BytesIO(payload)).convert("RGB")
     except Exception as exc: raise HTTPException(422,"Image content is invalid") from exc
     from models.radiology_encoder import RadiologyEncoder
     from data.preprocessing.radiology import get_radiology_transforms
     artifact=io.BytesIO(); get_file(model.checkpoint_key,artifact); artifact.seek(0)
     try:
-        state=torch.load(artifact,map_location="cpu",weights_only=False)["model_state_dict"]
+        state=torch.load(artifact,map_location="cpu",weights_only=True)["model_state_dict"]
         network=RadiologyEncoder(pretrained=False,num_classes=2); network.load_state_dict(state); network.eval()
         tensor=get_radiology_transforms({},False)(uploaded).unsqueeze(0)
         with torch.no_grad(): probability=float(torch.sigmoid(network(tensor)["logits"])[0])
     except Exception as exc: raise HTTPException(409,"Checkpoint is incompatible with radiology inference") from exc
-    result={"radiology_prediction":{"positive_probability":probability,"predicted_class":int(probability>=.5)},"model_id":model.id,"model_mode":"radiology","pcrort_legacy":{"action":"REQUEST_EVIDENCE","reason":"A single image is insufficient for full multimodal PC-RORT deliberation","missing_modalities":["pathology","genomics"]},"disclaimer":"Research use only; not for clinical decision-making."}
+    result={"radiology_prediction":{"positive_probability":probability,"predicted_class":int(probability>=.5)},"model_id":model.id,"model_mode":"radiology","pcrort":{"action":"REQUEST_EVIDENCE","reason":"A single image is insufficient for full multimodal assessment","missing_modalities":["pathology","genomics"]},"model_scope":"single-image radiology"}
     prediction=Prediction(owner_id=user.id,model_id=model.id,result=result); db.add(prediction); db.commit(); audit(db,user.id,"PREDICTION_REQUEST",prediction.id); return result
