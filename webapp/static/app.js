@@ -74,3 +74,17 @@ el("predict-form").addEventListener("submit",e=>{
 });
 fetch("/api/health").then(r=>r.json()).then(r=>el("health").textContent="API "+r.status).catch(()=>el("health").textContent="API unavailable");
 call("/auth/session").then(r=>{csrf=r.csrf;return refresh();}).catch(()=>{});
+
+el("transport-form").addEventListener("submit",e=>{
+  e.preventDefault();action(async()=>{
+    const center=JSON.parse(el("matrix-input").value);
+    const rho=Number(el("matrix-rho").value);
+    const radius=Number(el("matrix-radius").value);
+    const r=await call("/api/transport/optimize",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({center,rho,radius,max_iterations:30})
+    });
+    el("transport-result").textContent=JSON.stringify(r,null,2);
+    notice("Optimization completed.");
+  });
+});
