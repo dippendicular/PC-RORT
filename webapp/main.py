@@ -5,6 +5,7 @@ import torch
 from PIL import Image
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel, Field
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -77,6 +78,35 @@ def job_status(job_id:str,user:User=Depends(current),db:Session=Depends(get_db))
 @app.post("/jobs/{job_id}/cancel")
 def cancel(request:Request,job_id:str,user:User=Depends(current),db:Session=Depends(get_db)):
     require_csrf(request); x=owned(db.get(Job,job_id),user); x.cancel_requested=True; db.commit(); return {"ok":True}
+
+
+class TransportRequest(BaseModel):
+    center: list[list[float]] = Field(description="Symmetric PSD candidate risk matrix")
+    rho: float = Field(default=0.5, ge=0, le=1)
+    radius: float = Field(default=0, ge=0, le=10)
+    max_iterations: int = Field(default=25, ge=1, le=40)
+
+@app.post("/api/transport/optimize", tags=["PC-RORT"])
+@limiter.limit("6/minute")
+def optimize_transport(request:Request, payload:TransportRequest,
+                       user:User=Depends(current)):
+    require_csrf(request)
+    import numpy as np
+    from pcrort.robust import UncertaintySet, robust_select
+    try:
+        center=np.asarray(payload.center,dtype=float)
+        if center.ndim != 2 or not (2 <= center.shape[0] <= 8) or center.shape[1]!=center.shape[0]:
+            raise ValueError("Risk matrix must have between 2 and 8 candidates")
+        uncertainty=UncertaintySet(center,"frobenius",payload.radius)
+        output=robust_select(uncertainty,payload.rho,
+                             max_iterations=payload.max_iterations)
+    except (ValueError, RuntimeError, NotImplementedError) as exc:
+        raise HTTPException(422,str(exc)) from exc
+    return {"weights":output.weights.tolist(),"external_mass":float(1-output.weights[0]),
+            "worst_case_contrast":float(output.objective),
+            "iterations":int(output.iterations),"converged":bool(output.converged),
+            "numerical_gap":float(output.gap),"uncertainty":"frobenius",
+            "method":"numerical PSD robust optimizer"}
 
 @app.get("/models")
 def models(user:User=Depends(current),db:Session=Depends(get_db)):
