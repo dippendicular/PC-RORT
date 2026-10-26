@@ -4,6 +4,29 @@ The portal provides authenticated dataset management, asynchronous training jobs
 model inventory and radiology inference. It uses FastAPI, SQLAlchemy, Celery,
 Redis, PostgreSQL and S3-compatible object storage.
 
+## Local stack (quick start)
+
+From the repository root, with Docker installed:
+
+```bash
+python -m pip install -e ".[models,web]"
+docker compose up -d
+cp .env.example .env
+pcrort web
+```
+
+Open `http://127.0.0.1:8000` for the browser console. In a separate
+terminal, start the background training worker:
+
+```bash
+celery -A webapp.tasks.celery worker --loglevel=info
+```
+
+The Compose stack provides loopback-only PostgreSQL, Redis, MinIO and a
+development bucket. Its credentials are placeholders for **local development
+only**; replace them and deploy managed services with HTTPS and migrations for
+real deployment.
+
 ## Install
 
 ```bash
