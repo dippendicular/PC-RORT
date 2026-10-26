@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 
-class VOIRProductionClient:
+class PC-RORTProductionClient:
     """Uses only a site-local trainer and rejects incompatible model payloads."""
     def __init__(self, trainer_factory: Callable[[], object]):
         self.trainer = trainer_factory()
@@ -36,7 +36,7 @@ class VOIRProductionClient:
         return float(metrics.get("val_loss", 0.0)), len(self.trainer.val_loader.dataset), metrics
 
 
-def start_production_client(server_address: str, client: VOIRProductionClient, root_certificates: bytes) -> None:
+def start_production_client(server_address: str, client: PC-RORTProductionClient, root_certificates: bytes) -> None:
     try:
         import flwr as fl
     except ImportError as exc:
