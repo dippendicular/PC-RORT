@@ -16,8 +16,8 @@ from .pathology_encoder import PathologyEncoder
 from .genomics_encoder import GenomicsEncoder
 from .fusion import build_fusion
 from .classifier import ClassifierHead
-from pcrort.deliberation import PCRORTLegacyDeliberation
-from pcrort.selective import SelectivePolicy
+from pcrort.legacy.deliberation import PCRORTLegacyDeliberation
+from pcrort.legacy.selective import SelectivePolicy
 
 
 class MultimodalModel(nn.Module):
