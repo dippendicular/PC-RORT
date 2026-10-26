@@ -2,90 +2,79 @@
 
 **Provenance-Constrained Recipient-Optimal Relation Transport for Federated Multimodal Learning**
 
-PC-RORT is a research codebase for studying provenance-valid evidential relation operators and recipient-specific transfer under correlated estimation errors. It combines existing multimodal model infrastructure with a new matrix-level robust transport implementation.
+PC-RORT is a Python research and engineering platform combining multimodal representation learning, provenance-aware evidence processing, federated training infrastructure, and robust recipient-specific relation transport.
 
-> **Implementation status:** The covariance-aware numerical core, general candidate-weight optimizer, uncertainty-region comparison, and matrix-layer Monte Carlo runner are available on the development branch. A complete federated, provenance-typed PC-RORT training and calibration pipeline is **not** yet integrated. The retained signed-graph deliberation and selective-policy modules are explicitly labeled legacy baselines and are not the paper's PC-RORT estimator.
+## Quick start
 
-## Mathematical objective
-
-For recipient k and evidential edge e, construct the conditional error matrix
-
-```text
-Q = B + V
-B[j,l] = b[j]^T H b[l]
-V[j,l] = tr(H Cov(epsilon_l, epsilon_j | pilot))
-```
-
-The source weights are chosen by a **local-relative** robust criterion:
-
-```text
-minimize over v: max_{Q in U} [v^T Q v - e_local^T Q e_local]
-subject to v >= 0, sum(v) = 1, v[local] >= 1 - rho
-```
-
-The local-only vertex always has exactly zero contrast. Shared-encoder-induced off-diagonal covariance terms are retained.
-
-## Repository map
-
-| Directory | Role |
-| --- | --- |
-| `pcrort/matrix.py` | Conditional B+V risk matrix and relative contrast |
-| `pcrort/robust.py` | General-J PSD separation and cutting-plane robust weighting |
-| `pcrort/uncertainty.py` | Experimental direct-Q bootstrap uncertainty proposals |
-| `pcrort/legacy/` | Retained historical evidence admission, signed graph and selective baselines |
-| `experiments/run_pcrort_matrix.py` | Matrix-level coverage and statistical-power sweeps |
-| `tests/` | Numerical invariants and covariance decision-flip regression tests |
-| `models/`, `training/`, `federated/` | Existing multimodal and federation infrastructure |
-| `data/`, `configs/`, `evaluation/` | Data handling, configuration and metrics |
-| `webapp/` | Optional research portal; not a production PC-RORT evaluation service |
-| `notebooks/` | Exploration and visualizations |
-
-See [architecture](docs/ARCHITECTURE.md), [experiment reproducibility](docs/EXPERIMENTS.md), and [migration status](docs/MIGRATION.md) for details.
-
-## Quick start: numerical research experiments
-
-Use Python 3.11+ from the repository root. For the focused matrix layer, install:
+Python 3.11 or newer:
 
 ```bash
-python -m pip install numpy scipy cvxpy pytest
-python -m pytest tests/test_pcrort_matrix.py tests/test_pcrort_robust.py -q
+git clone https://github.com/dippendicular/PC-RORT.git
+cd PC-RORT
+python -m pip install -e .
+pcrort demo
 ```
 
-Run a small matrix-layer sweep:
+The lightweight install includes the numerical optimizer, covariance matrix utilities, and uncertainty-set comparison tools.
+
+For notebooks, model training and the web portal together:
 
 ```bash
-python -m experiments.run_pcrort_matrix --samples 50 100 --candidates 2 3 --dimensions 1 4 --mismatches 0 0.3 --reps 25 --bootstrap 100 --out results/pcrort_matrix.csv
+python -m pip install -e ".[dev,models,web]"
 ```
 
-The output is a long-form CSV plus a JSON run-configuration record. Report empirical coverage and non-local selection together. All uncertainty proposals in this experiment are research comparators rather than a proven replacement for the paper's full joint confidence construction.
+## Interactive notebook
 
-## Multimodal research pipeline
-
-The existing radiology, pathology and genomics training entry points remain available. Install the full (larger) environment:
+Open `notebooks/run_pipeline.ipynb` in JupyterLab or Google Colab and select **Run All**. It includes the covariance decision flip, general PSD optimization, uncertainty-set comparison, Monte Carlo power experiment and plots. Start Jupyter locally with:
 
 ```bash
-python -m pip install -r requirements.txt
-python -m experiments.train_radiology --config configs/radiology.yaml
-python -m experiments.train_pathology --config configs/pathology.yaml
-python -m experiments.train_genomics --config configs/genomics.yaml
+jupyter lab notebooks/run_pipeline.ipynb
+```
+
+## CLI experiments
+
+```bash
+python -m experiments.run_pcrort_matrix --reps 25 --bootstrap 100
+```
+
+The runner compares Frobenius, simultaneous PSD entrywise and affine PSD uncertainty models with a plug-in baseline. Results and configuration metadata are written to `results/`.
+
+## Multimodal training
+
+Configure the dataset paths in `configs/` and execute a training entry point:
+
+```bash
 python -m experiments.train_multimodal --config configs/multimodal.yaml
 ```
 
-These commands require **user-provided approved datasets** as specified by the chosen configuration. Repository data ingestion, clinical provenance graph generation and fully integrated PC-RORT transport have not been provided as public end-to-end examples; do not imply that missing data or schema is generated by the training command. All patient records, credentials and model artifacts must remain outside version control.
+Available modes: `train_radiology`, `train_pathology`, `train_genomics`, and `train_multimodal`. Training requires the corresponding dataset manifest and modality files.
 
-## Development and verification
+## Web app
+
+The FastAPI workspace includes account access, dataset uploads, queued training jobs, a model inventory, and a radiology inference interface. Copy `.env.example` to `.env`, configure PostgreSQL/Redis/S3-compatible services and secrets, then:
 
 ```bash
-python -m pytest tests/test_pcrort_matrix.py tests/test_pcrort_robust.py -q
-python -m experiments.run_pcrort_matrix --samples 30 --candidates 2 --dimensions 1 --mismatches 0.3 --reps 2 --bootstrap 15 --out results/ci_smoke.csv
+pcrort web
 ```
 
-GitHub Actions includes a focused matrix-layer workflow. Its status must be inspected before merging; workflow presence is not evidence that execution passed.
+Open `http://127.0.0.1:8000`. API reference: `/api/docs`. Deployment and worker setup are described in [Web App Guide](docs/WEBAPP.md).
 
-## Scope and responsible use
+## Project layout
 
-This software is for methodological research, not clinical diagnosis or deployment. Numerical solver values are not interval-verified mathematical certificates. Matrix-level quadratic operator risk is not observed patient-level diagnostic risk. No clinical decisions should be made using these components.
+| Location | Purpose |
+| --- | --- |
+| `pcrort/` | Matrix construction, robust optimizer, uncertainty methods, evidence and deliberation |
+| `experiments/` | Statistical experiments and model-training CLI |
+| `models/` | Radiology, pathology, genomics, and multimodal models |
+| `federated/` | Federated client/server and aggregation |
+| `data/` | Datasets, provenance-related patient matching and preprocessing |
+| `evaluation/` | Metrics and plotting |
+| `webapp/` | FastAPI service, database, workers and dashboard |
+| `notebooks/` | Interactive research workflow |
+| `tests/` | Numerical regression and invariant tests |
+
+Documentation: [Architecture](docs/ARCHITECTURE.md) · [Experiments](docs/EXPERIMENTS.md) · [Web App](docs/WEBAPP.md) · [Contributing](CONTRIBUTING.md).
 
 ## License
 
-Distributed under the [MIT License](LICENSE). Contributions must respect the license and attribution requirements of any third-party datasets, pretrained models and dependencies.
+MIT. See [LICENSE](LICENSE).
