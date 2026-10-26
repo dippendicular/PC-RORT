@@ -16,8 +16,8 @@ from .pathology_encoder import PathologyEncoder
 from .genomics_encoder import GenomicsEncoder
 from .fusion import build_fusion
 from .classifier import ClassifierHead
-from pcrort.legacy.deliberation import PCRORTLegacyDeliberation
-from pcrort.legacy.selective import SelectivePolicy
+from pcrort.deliberation import PCRORTDeliberation
+from pcrort.selective import SelectivePolicy
 
 
 class MultimodalModel(nn.Module):
@@ -58,8 +58,8 @@ class MultimodalModel(nn.Module):
         num_classes = dataset_cfg.get("num_classes", 2)
 
         projection_dim = fusion_cfg.get("projection_dim", 256)
-        legacy_cfg = config.get("pcrort_legacy", {})
-        self.legacy_enabled = legacy_cfg.get("enabled", False)
+        pcrort_cfg = config.get("pcrort", {})
+        self.pcrort_enabled = pcrort_cfg.get("enabled", False)
 
         # Build modality dims dict for active modalities
         modality_dims: Dict[str, int] = {}
@@ -156,16 +156,16 @@ class MultimodalModel(nn.Module):
             hidden_dims=classifier_cfg.get("hidden_dims", [256, 128]),
             dropout=classifier_cfg.get("dropout", 0.3),
         )
-        self.deliberation = PCRORTLegacyDeliberation(
+        self.deliberation = PCRORTDeliberation(
             dim=projection_dim,
-            heads=legacy_cfg.get("relation_heads", 4),
+            heads=pcrort_cfg.get("relation_heads", 4),
             dropout=fusion_cfg.get("dropout", 0.3),
-        ) if self.legacy_enabled else None
+        ) if self.pcrort_enabled else None
         self.selective_policy = SelectivePolicy(
-            acceptance_threshold=legacy_cfg.get("acceptance_threshold", .8),
-            challenge_threshold=legacy_cfg.get("challenge_threshold", .2),
-            alpha=legacy_cfg.get("conformal_alpha", .1),
-        ) if self.legacy_enabled else None
+            acceptance_threshold=pcrort_cfg.get("acceptance_threshold", .8),
+            challenge_threshold=pcrort_cfg.get("challenge_threshold", .2),
+            alpha=pcrort_cfg.get("conformal_alpha", .1),
+        ) if self.pcrort_enabled else None
 
     def forward(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -215,7 +215,7 @@ class MultimodalModel(nn.Module):
         # availability mask is a technical bridge; clinical contracts must
         # still be admitted by EvidenceContract before calling this model.
         fusion_weights: Dict[str, torch.Tensor] = {}
-        legacy_output = {}
+        pcrort_output = {}
         if self.deliberation is not None and len(projected) > 1:
             names = sorted(projected)
             tokens = torch.stack([projected[n] for n in names], dim=1)
@@ -227,8 +227,8 @@ class MultimodalModel(nn.Module):
             comparable &= ~torch.eye(len(names), dtype=torch.bool, device=tokens.device).unsqueeze(0)
             confidence = available.float() * 0.75
             uncertainty = (1 - available.float())
-            legacy_output = self.deliberation(tokens, confidence, uncertainty, comparable)
-            fused = legacy_output["embedding"]
+            pcrort_output = self.deliberation(tokens, confidence, uncertainty, comparable)
+            fused = pcrort_output["embedding"]
             fusion_weights = {name: available[:, i].float() for i, name in enumerate(names)}
         elif self.fusion is not None and len(projected) > 1:
             fused, fusion_weights = self.fusion(projected)
@@ -244,8 +244,8 @@ class MultimodalModel(nn.Module):
 
         if self.selective_policy is not None:
             coverage = torch.stack(list(fusion_weights.values()), dim=1).mean(1) if fusion_weights else torch.ones_like(logits)
-            legacy_output["selective"] = self.selective_policy.decide(
-                logits, legacy_output["challenge"], coverage,
+            pcrort_output["selective"] = self.selective_policy.decide(
+                logits, pcrort_output["challenge"], coverage,
                 gap_sensitivity=1 - coverage, requestable=coverage < 1,
             )
 
@@ -254,5 +254,5 @@ class MultimodalModel(nn.Module):
             "embeddings": embeddings,
             "fused_embedding": fused,
             "fusion_weights": fusion_weights,
-            "pcrort_legacy": legacy_output,
+            "pcrort": pcrort_output,
         }
