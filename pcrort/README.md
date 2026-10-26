@@ -1,9 +1,9 @@
 # PC-RORT matrix-layer migration (first increment)
 
-The existing VOIR multimodal loaders, encoder models, federated representation
+The existing PC-RORT multimodal loaders, encoder models, federated representation
 training, and provenance evidence gate remain intact. The new `pcrort` package
 holds the paper-specific conditional risk matrix and local-relative selection
-primitives independently of legacy VOIR deliberation/selection.
+primitives independently of legacy PC-RORT deliberation/selection.
 
 ## Included now
 
@@ -29,8 +29,8 @@ solver certificate.
 
 ## Migration boundary
 
-Do not replace `voir/selective.py` with the new selector or claim that
-`voir/deliberation.py` estimates the manuscript's typed relation operator.
+Do not replace `pcrort/legacy/selective.py` with the new selector or claim that
+`pcrort/legacy/deliberation.py` estimates the manuscript's typed relation operator.
 Reuse provenance checks as the input eligibility boundary and introduce an
 explicit typed (P,Q,D) schema with annotation-availability, patient, lesion,
 time, target, and lineage validation before connecting the matrix-layer
