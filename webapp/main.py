@@ -55,7 +55,8 @@ def login(request:Request, email:str=Form(), password:str=Form(), db:Session=Dep
 def logout(request:Request,user:User=Depends(current)):
     require_csrf(request); r=JSONResponse({"ok":True}); r.delete_cookie("access"); r.delete_cookie("csrf"); return r
 
-@app.get("/datasets")
+@app.get("/auth/session")
+def session(request:Request,user:User=Depends(current)):\n    return {"authenticated":True,"csrf":request.cookies.get("csrf",""),"admin":user.is_admin}\n\n@app.get("/datasets")
 def datasets(user:User=Depends(current),db:Session=Depends(get_db)): return [{"id":x.id,"name":x.name,"status":x.status,"manifest":x.manifest} for x in db.query(Dataset).filter_by(owner_id=user.id)]
 @app.post("/datasets")
 @limiter.limit("3/hour")
@@ -70,7 +71,7 @@ def create_job(request:Request,dataset_id:str=Form(),model_mode:str=Form(),user:
     require_csrf(request); dataset=owned(db.get(Dataset,dataset_id),user)
     if dataset.status!="READY" or model_mode not in {"radiology","multimodal"}: raise HTTPException(422,"Dataset is not ready or model mode is invalid")
     job=Job(owner_id=user.id,dataset_id=dataset.id,model_mode=model_mode,config={}); db.add(job); db.commit(); train_model.delay(job.id); audit(db,user.id,"TRAIN_REQUEST",job.id); return {"job_id":job.id,"status":job.status}
-@app.get("/jobs/{job_id}")
+@app.get("/jobs")\ndef list_jobs(user:User=Depends(current),db:Session=Depends(get_db)):\n    rows=db.query(Job).filter_by(owner_id=user.id).order_by(Job.created_at.desc()).limit(50).all()\n    return [{"id":x.id,"status":x.status,"model_mode":x.model_mode,"cancel_requested":x.cancel_requested} for x in rows]\n\n@app.get("/jobs/{job_id}")
 def job_status(job_id:str,user:User=Depends(current),db:Session=Depends(get_db)):
     x=owned(db.get(Job,job_id),user); return {"id":x.id,"status":x.status,"logs":x.logs,"cancel_requested":x.cancel_requested}
 @app.post("/jobs/{job_id}/cancel")
