@@ -1,46 +1,91 @@
-# VOIR: Federated Multimodal Cancer Diagnosis
+# PC-RORT
 
-This repository implements the VOIR research pipeline for radiology, pathology,
-and molecular evidence. It requires approved, real site-local clinical data.
-Patient data, model outputs, and credentials are excluded from version control.
+**Provenance-Constrained Recipient-Optimal Relation Transport for Federated Multimodal Learning**
 
-## Required data
+PC-RORT is a research codebase for studying provenance-valid evidential relation operators and recipient-specific transfer under correlated estimation errors. It combines existing multimodal model infrastructure with a new matrix-level robust transport implementation.
 
-Import data into `multimodal_cancer_detection/datasets/` before training:
+> **Implementation status:** The covariance-aware numerical core, general candidate-weight optimizer, uncertainty-region comparison, and matrix-layer Monte Carlo runner are available on the development branch. A complete federated, provenance-typed PC-RORT training and calibration pipeline is **not** yet integrated. The retained signed-graph deliberation and selective-policy modules are explicitly labeled legacy baselines and are not the paper's PC-RORT estimator.
 
-```powershell
-python -m multimodal_cancer_detection.data.ingest `
-  --metadata C:\secure\metadata.csv `
-  --genomics C:\secure\genomics.csv `
-  --radiology-dir C:\secure\radiology `
-  --pathology-dir C:\secure\pathology
+## Mathematical objective
+
+For recipient k and evidential edge e, construct the conditional error matrix
+
+```text
+Q = B + V
+B[j,l] = b[j]^T H b[l]
+V[j,l] = tr(H Cov(epsilon_l, epsilon_j | pilot))
 ```
 
-See [datasets/README.md](datasets/README.md) for the required manifest schema.
-The import command validates the manifest before copying files and refuses to
-overwrite an existing dataset.
+The source weights are chosen by a **local-relative** robust criterion:
 
-## Training
-
-Install dependencies, then run a training entry point from the repository root:
-
-```powershell
-pip install -r multimodal_cancer_detection/requirements.txt
-python -m multimodal_cancer_detection.experiments.train_multimodal --config multimodal_cancer_detection/configs/multimodal.yaml
+```text
+minimize over v: max_{Q in U} [v^T Q v - e_local^T Q e_local]
+subject to v >= 0, sum(v) = 1, v[local] >= 1 - rho
 ```
 
-The default configuration requires `datasets/metadata.csv` and
-`datasets/genomics.csv`. A run fails if the real files are absent.
+The local-only vertex always has exactly zero contrast. Shared-encoder-induced off-diagonal covariance terms are retained.
 
-## Federated deployment
+## Repository map
 
-Federation is deployed at independent data-owning sites. The coordinator uses
-`federated.server.start_production_server`; each site independently runs
-`federated.client.start_production_client` with its local approved data and
-mTLS credentials. This repository has no local federated run mode.
+| Directory | Role |
+| --- | --- |
+| `pcrort/matrix.py` | Conditional B+V risk matrix and relative contrast |
+| `pcrort/robust.py` | General-J PSD separation and cutting-plane robust weighting |
+| `pcrort/uncertainty.py` | Experimental direct-Q bootstrap uncertainty proposals |
+| `pcrort/legacy/` | Retained historical evidence admission, signed graph and selective baselines |
+| `experiments/run_pcrort_matrix.py` | Matrix-level coverage and statistical-power sweeps |
+| `tests/` | Numerical invariants and covariance decision-flip regression tests |
+| `models/`, `training/`, `federated/` | Existing multimodal and federation infrastructure |
+| `data/`, `configs/`, `evaluation/` | Data handling, configuration and metrics |
+| `webapp/` | Optional research portal; not a production PC-RORT evaluation service |
+| `notebooks/` | Exploration and visualizations |
 
-## Safety boundary
+See [architecture](docs/ARCHITECTURE.md), [experiment reproducibility](docs/EXPERIMENTS.md), and [migration status](docs/MIGRATION.md) for details.
 
-This is research software, not a clinical device. Do not use it for patient
-care without validation, governance approval, security review, and appropriate
-regulatory authorization.
+## Quick start: numerical research experiments
+
+Use Python 3.11+ from the repository root. For the focused matrix layer, install:
+
+```bash
+python -m pip install numpy scipy cvxpy pytest
+python -m pytest tests/test_pcrort_matrix.py tests/test_pcrort_robust.py -q
+```
+
+Run a small matrix-layer sweep:
+
+```bash
+python -m experiments.run_pcrort_matrix --samples 50 100 --candidates 2 3 --dimensions 1 4 --mismatches 0 0.3 --reps 25 --bootstrap 100 --out results/pcrort_matrix.csv
+```
+
+The output is a long-form CSV plus a JSON run-configuration record. Report empirical coverage and non-local selection together. All uncertainty proposals in this experiment are research comparators rather than a proven replacement for the paper's full joint confidence construction.
+
+## Multimodal research pipeline
+
+The existing radiology, pathology and genomics training entry points remain available. Install the full (larger) environment:
+
+```bash
+python -m pip install -r requirements.txt
+python -m experiments.train_radiology --config configs/radiology.yaml
+python -m experiments.train_pathology --config configs/pathology.yaml
+python -m experiments.train_genomics --config configs/genomics.yaml
+python -m experiments.train_multimodal --config configs/multimodal.yaml
+```
+
+These commands require **user-provided approved datasets** as specified by the chosen configuration. Repository data ingestion, clinical provenance graph generation and fully integrated PC-RORT transport have not been provided as public end-to-end examples; do not imply that missing data or schema is generated by the training command. All patient records, credentials and model artifacts must remain outside version control.
+
+## Development and verification
+
+```bash
+python -m pytest tests/test_pcrort_matrix.py tests/test_pcrort_robust.py -q
+python -m experiments.run_pcrort_matrix --samples 30 --candidates 2 --dimensions 1 --mismatches 0.3 --reps 2 --bootstrap 15 --out results/ci_smoke.csv
+```
+
+GitHub Actions includes a focused matrix-layer workflow. Its status must be inspected before merging; workflow presence is not evidence that execution passed.
+
+## Scope and responsible use
+
+This software is for methodological research, not clinical diagnosis or deployment. Numerical solver values are not interval-verified mathematical certificates. Matrix-level quadratic operator risk is not observed patient-level diagnostic risk. No clinical decisions should be made using these components.
+
+## License
+
+Distributed under the [MIT License](LICENSE). Contributions must respect the license and attribution requirements of any third-party datasets, pretrained models and dependencies.
