@@ -17,7 +17,7 @@ from .storage import put_file, get_file
 from .tasks import train_model, validate_dataset
 from .validation import validate_zip
 
-app=FastAPI(title="VOIR Research Portal", docs_url=None, redoc_url=None)
+app=FastAPI(title="PC-RORT Research Portal", docs_url=None, redoc_url=None)
 limiter=Limiter(key_func=get_remote_address); app.state.limiter=limiter
 root=Path(__file__).parent
 app.mount("/static", StaticFiles(directory=root/"static"), name="static")
@@ -101,8 +101,8 @@ async def predict(request:Request, model_id:str=Form(), image:UploadFile=File(),
     payload=await image.read()
     try: uploaded=Image.open(io.BytesIO(payload)).convert("RGB")
     except Exception as exc: raise HTTPException(422,"Image content is invalid") from exc
-    from multimodal_cancer_detection.models.radiology_encoder import RadiologyEncoder
-    from multimodal_cancer_detection.data.preprocessing.radiology import get_radiology_transforms
+    from models.radiology_encoder import RadiologyEncoder
+    from data.preprocessing.radiology import get_radiology_transforms
     artifact=io.BytesIO(); get_file(model.checkpoint_key,artifact); artifact.seek(0)
     try:
         state=torch.load(artifact,map_location="cpu",weights_only=False)["model_state_dict"]
@@ -110,5 +110,5 @@ async def predict(request:Request, model_id:str=Form(), image:UploadFile=File(),
         tensor=get_radiology_transforms({},False)(uploaded).unsqueeze(0)
         with torch.no_grad(): probability=float(torch.sigmoid(network(tensor)["logits"])[0])
     except Exception as exc: raise HTTPException(409,"Checkpoint is incompatible with radiology inference") from exc
-    result={"radiology_prediction":{"positive_probability":probability,"predicted_class":int(probability>=.5)},"model_id":model.id,"model_mode":"radiology","voir":{"action":"REQUEST_EVIDENCE","reason":"A single image is insufficient for full multimodal VOIR deliberation","missing_modalities":["pathology","genomics"]},"disclaimer":"Research use only; not for clinical decision-making."}
+    result={"radiology_prediction":{"positive_probability":probability,"predicted_class":int(probability>=.5)},"model_id":model.id,"model_mode":"radiology","pcrort_legacy":{"action":"REQUEST_EVIDENCE","reason":"A single image is insufficient for full multimodal PC-RORT deliberation","missing_modalities":["pathology","genomics"]},"disclaimer":"Research use only; not for clinical decision-making."}
     prediction=Prediction(owner_id=user.id,model_id=model.id,result=result); db.add(prediction); db.commit(); audit(db,user.id,"PREDICTION_REQUEST",prediction.id); return result
