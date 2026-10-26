@@ -11,11 +11,11 @@ from typing import Any, Dict
 
 import pandas as pd
 
-from multimodal_cancer_detection.experiments.train_multimodal import run_experiment as run_multimodal
-from multimodal_cancer_detection.experiments.train_radiology import run_experiment as run_radiology
-from multimodal_cancer_detection.experiments.train_pathology import run_experiment as run_pathology
-from multimodal_cancer_detection.experiments.train_genomics import run_experiment as run_genomics
-from multimodal_cancer_detection.evaluation.plots import plot_ablation_study
+from experiments.train_multimodal import run_experiment as run_multimodal
+from experiments.train_radiology import run_experiment as run_radiology
+from experiments.train_pathology import run_experiment as run_pathology
+from experiments.train_genomics import run_experiment as run_genomics
+from evaluation.plots import plot_ablation_study
 
 
 def main():
