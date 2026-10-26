@@ -12,18 +12,18 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from multimodal_cancer_detection.data.datasets.genomics_dataset import load_expression_matrix
-from multimodal_cancer_detection.data.datasets.multimodal_dataset import MultimodalDataset, multimodal_collate_fn
-from multimodal_cancer_detection.data.preprocessing.genomics import GenomicsPreprocessor
-from multimodal_cancer_detection.data.preprocessing.patient_matching import (
+from data.datasets.genomics_dataset import load_expression_matrix
+from data.datasets.multimodal_dataset import MultimodalDataset, multimodal_collate_fn
+from data.preprocessing.genomics import GenomicsPreprocessor
+from data.preprocessing.patient_matching import (
     create_patient_splits,
     load_existing_splits,
     load_metadata,
 )
-from multimodal_cancer_detection.data.preprocessing.pathology import get_pathology_transforms
-from multimodal_cancer_detection.data.preprocessing.radiology import get_radiology_transforms
-from multimodal_cancer_detection.evaluation.metrics import save_metrics, save_predictions
-from multimodal_cancer_detection.evaluation.plots import (
+from data.preprocessing.pathology import get_pathology_transforms
+from data.preprocessing.radiology import get_radiology_transforms
+from evaluation.metrics import save_metrics, save_predictions
+from evaluation.plots import (
     plot_calibration_curve,
     plot_confusion_matrix,
     plot_modality_contributions,
@@ -31,11 +31,11 @@ from multimodal_cancer_detection.evaluation.plots import (
     plot_roc_curve,
     plot_training_curves,
 )
-from multimodal_cancer_detection.models.multimodal_model import MultimodalModel
-from multimodal_cancer_detection.training.trainer import Trainer
-from multimodal_cancer_detection.utils.config import load_config, resolve_paths
-from multimodal_cancer_detection.utils.logging import ExperimentLogger
-from multimodal_cancer_detection.utils.seed import get_device, print_device_info, set_seed
+from models.multimodal_model import MultimodalModel
+from training.trainer import Trainer
+from utils.config import load_config, resolve_paths
+from utils.logging import ExperimentLogger
+from utils.seed import get_device, print_device_info, set_seed
 
 
 def run_experiment(config_path: str, overrides: Dict[str, Any] = None):

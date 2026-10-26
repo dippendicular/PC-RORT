@@ -1,4 +1,4 @@
-"""Fail-closed evidence admission and clinical comparability for VOIR."""
+"""Fail-closed evidence admission and clinical comparability for PC-RORT."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field

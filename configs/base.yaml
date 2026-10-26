@@ -22,7 +22,7 @@ device:
 
 # --- Dataset ---
 dataset:
-  metadata_csv: "multimodal_cancer_detection/datasets/metadata.csv"  # Required user-supplied manifest
+  metadata_csv: "datasets/metadata.csv"  # Required user-supplied manifest
   patient_id_col: "patient_id"  # Column name for patient identifier
   label_col: "label"            # Column name for classification label
   num_classes: 2                # 2 = binary, >2 = multiclass

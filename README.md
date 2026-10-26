@@ -1,46 +1,80 @@
-# VOIR: Federated Multimodal Cancer Diagnosis
+# PC-RORT
 
-This repository implements the VOIR research pipeline for radiology, pathology,
-and molecular evidence. It requires approved, real site-local clinical data.
-Patient data, model outputs, and credentials are excluded from version control.
+**Provenance-Constrained Recipient-Optimal Relation Transport for Federated Multimodal Learning**
 
-## Required data
+PC-RORT is a Python research and engineering platform combining multimodal representation learning, provenance-aware evidence processing, federated training infrastructure, and robust recipient-specific relation transport.
 
-Import data into `multimodal_cancer_detection/datasets/` before training:
+## Quick start
 
-```powershell
-python -m multimodal_cancer_detection.data.ingest `
-  --metadata C:\secure\metadata.csv `
-  --genomics C:\secure\genomics.csv `
-  --radiology-dir C:\secure\radiology `
-  --pathology-dir C:\secure\pathology
+Python 3.11 or newer:
+
+```bash
+git clone https://github.com/dippendicular/PC-RORT.git
+cd PC-RORT
+python -m pip install -e .
+pcrort demo
 ```
 
-See [datasets/README.md](datasets/README.md) for the required manifest schema.
-The import command validates the manifest before copying files and refuses to
-overwrite an existing dataset.
+The lightweight install includes the numerical optimizer, covariance matrix utilities, and uncertainty-set comparison tools.
 
-## Training
+For notebooks, model training and the web portal together:
 
-Install dependencies, then run a training entry point from the repository root:
-
-```powershell
-pip install -r multimodal_cancer_detection/requirements.txt
-python -m multimodal_cancer_detection.experiments.train_multimodal --config multimodal_cancer_detection/configs/multimodal.yaml
+```bash
+python -m pip install -e ".[dev,models,web]"
 ```
 
-The default configuration requires `datasets/metadata.csv` and
-`datasets/genomics.csv`. A run fails if the real files are absent.
+## Interactive notebook
 
-## Federated deployment
+Open `notebooks/run_pipeline.ipynb` in JupyterLab or Google Colab and select **Run All**. It includes the covariance decision flip, general PSD optimization, uncertainty-set comparison, Monte Carlo power experiment and plots. Start Jupyter locally with:
 
-Federation is deployed at independent data-owning sites. The coordinator uses
-`federated.server.start_production_server`; each site independently runs
-`federated.client.start_production_client` with its local approved data and
-mTLS credentials. This repository has no local federated run mode.
+```bash
+jupyter lab notebooks/run_pipeline.ipynb
+```
 
-## Safety boundary
+## CLI experiments
 
-This is research software, not a clinical device. Do not use it for patient
-care without validation, governance approval, security review, and appropriate
-regulatory authorization.
+```bash
+python -m experiments.run_pcrort_matrix --reps 25 --bootstrap 100
+```
+
+The runner compares Frobenius, simultaneous PSD entrywise and affine PSD uncertainty models with a plug-in baseline. Results and configuration metadata are written to `results/`.
+
+## Multimodal training
+
+Configure the dataset paths in `configs/` and execute a training entry point:
+
+```bash
+python -m experiments.train_multimodal --config configs/multimodal.yaml
+```
+
+Available modes: `train_radiology`, `train_pathology`, `train_genomics`, and `train_multimodal`. Training requires the corresponding dataset manifest and modality files.
+
+## Web app
+
+The FastAPI workspace includes account access, dataset uploads, queued training jobs, a model inventory, and a radiology inference interface. Copy `.env.example` to `.env`, configure PostgreSQL/Redis/S3-compatible services and secrets, then:
+
+```bash
+pcrort web
+```
+
+Open `http://127.0.0.1:8000`. API reference: `/api/docs`. Deployment and worker setup are described in [Web App Guide](docs/WEBAPP.md).
+
+## Project layout
+
+| Location | Purpose |
+| --- | --- |
+| `pcrort/` | Matrix construction, robust optimizer, uncertainty methods, evidence and deliberation |
+| `experiments/` | Statistical experiments and model-training CLI |
+| `models/` | Radiology, pathology, genomics, and multimodal models |
+| `federated/` | Federated client/server and aggregation |
+| `data/` | Datasets, provenance-related patient matching and preprocessing |
+| `evaluation/` | Metrics and plotting |
+| `webapp/` | FastAPI service, database, workers and dashboard |
+| `notebooks/` | Interactive research workflow |
+| `tests/` | Numerical regression and invariant tests |
+
+Documentation: [Architecture](docs/ARCHITECTURE.md) · [Experiments](docs/EXPERIMENTS.md) · [Web App](docs/WEBAPP.md) · [Contributing](CONTRIBUTING.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE).

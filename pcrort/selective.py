@@ -1,4 +1,4 @@
-"""Development-fitted calibration, conformal sets and VOIR action policy."""
+"""Existing selective baseline, distinct from PC-RORT paired-risk calibration."""
 from __future__ import annotations
 from typing import Dict, Optional
 import numpy as np

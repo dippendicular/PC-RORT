@@ -1,11 +1,11 @@
-"""Relation-aware, signed graph deliberation used after evidence admission."""
+"""Existing signed-graph deliberation baseline, not the PC-RORT transport optimizer."""
 from __future__ import annotations
 from typing import Dict, List, Tuple
 import torch
 from torch import nn
 
 
-class VOIRDeliberation(nn.Module):
+class PCRORTDeliberation(nn.Module):
     """Two-layer signed message-passing engine with relation probabilities.
 
     Relation classes are support, contradiction, qualification and dependence.
