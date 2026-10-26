@@ -16,7 +16,7 @@
 - `models/`: radiology, pathology, genomic and multimodal encoders.
 - `training/`: network training utilities.
 - `federated/`: shared-parameter aggregation and site/coordinator wrappers.
-- `pcrort/`: research algorithm, uncertainty, selection and legacy boundaries.
+- `pcrort/`: research algorithm, uncertainty, selection and model-integration boundaries.
 - `experiments/`: CLI entrypoints for training and matrix experiments.
 - `evaluation/`: metrics and plotting.
 - `webapp/`: separate optional research portal.
